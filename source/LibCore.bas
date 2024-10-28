@@ -1,7 +1,7 @@
 Attribute VB_Name = "LibCore"
 '===============================================================================
 '   Модуль          : LibCore
-'   Версия          : 2024.10.25
+'   Версия          : 2024.10.28
 '   Автор           : elvin-nsk (me@elvin.nsk.ru)
 '   Использован код : dizzy (из макроса CtC), Alex Vakulenko
 '                     и др.
@@ -1754,17 +1754,6 @@ Public Function AddProperEndingToPath(ByVal Path As String) As String
     Else: AddProperEndingToPath = Path
 End Function
 
-Private Sub CreateNestedFolders(ByVal Path As String)
-    Dim SubPath As Variant
-    Dim StrCheckPath As String
-    For Each SubPath In VBA.Split(Path, "\")
-        StrCheckPath = StrCheckPath & SubPath & "\"
-        If VBA.Dir(StrCheckPath, vbDirectory) = vbNullString Then
-            VBA.MkDir StrCheckPath
-        End If
-    Next
-End Sub
-
 'существует ли файл или папка (папка должна заканчиваться на "\")
 Public Property Get FileExists(ByVal File As String) As Boolean
     If File = "" Then Exit Property
@@ -1852,9 +1841,19 @@ End Function
 'создаёт путь, если не было
 'возвращает Path обратно (для inline-использования)
 Public Function MakePath(ByVal Path As String) As String
-    If Not FSO.FolderExists(Path) Then CreateNestedFolders Path
+    If Not FSO.FolderExists(Path) Then MakeNestedFolders Path
     MakePath = Path
 End Function
+Private Sub MakeNestedFolders(ByVal Path As String)
+    Dim SubPath As Variant
+    Dim StrCheckPath As String
+    For Each SubPath In VBA.Split(Path, "\")
+        StrCheckPath = StrCheckPath & SubPath & "\"
+        If VBA.Dir(StrCheckPath, vbDirectory) = vbNullString Then
+            VBA.MkDir StrCheckPath
+        End If
+    Next
+End Sub
 
 'загружает файл в строку
 Public Function ReadFile(ByVal File As String) As String

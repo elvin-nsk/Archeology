@@ -1,7 +1,7 @@
 Attribute VB_Name = "Archeology"
 '===============================================================================
 '   Макрос          : Archeology
-'   Версия          : 2024.10.25
+'   Версия          : 2024.10.28
 '   Сайты           : https://vk.com/elvin_macro
 '                     https://github.com/elvin-nsk
 '   Автор           : elvin-nsk (me@elvin.nsk.ru)
@@ -15,13 +15,15 @@ Option Explicit
 Public Const APP_NAME As String = "Archeology"
 Public Const APP_DISPLAYNAME As String = APP_NAME
 Public Const APP_FILEBASENAME As String = "elvin_" & APP_NAME
-Public Const APP_VERSION As String = "2024.10.25"
+Public Const APP_VERSION As String = "2024.10.28"
 Public Const APP_URL As String = "https://vk.com/elvin_macro/" & APP_NAME
 
 '===============================================================================
 ' # Globals
 
 Private Const TEXT_PREFIX As String = "Илл. "
+Private Const CDR_FOLDER_NAME As String = "CDR"
+Private Const PDF_FOLDER_NAME As String = "PDF"
 
 '===============================================================================
 ' # Entry points
@@ -38,12 +40,12 @@ Sub Rename()
     
     Dim StartingNumber As Long
     If Not TryGetStartingNumberFromFileName(StartingNumber) Then
-        Warn "Не найден стартовый номер в названии файла."
+        Warn "Не найден стартовый номер в названии файла.", APP_DISPLAYNAME
         Exit Sub
     End If
         
     If Not IsThereAnyValidShape Then
-        Warn "Не найдено подходящих текстовых объектов."
+        Warn "Не найдено подходящих текстовых объектов.", APP_DISPLAYNAME
         Exit Sub
     End If
     
@@ -51,10 +53,42 @@ Sub Rename()
         
     RenameInActiveDoc StartingNumber
     
-    '??? PROFIT!
-    
 Finally:
     BoostFinish
+    Exit Sub
+
+Catch:
+    VBA.MsgBox VBA.Err.Source & ": " & VBA.Err.Description, vbCritical, "Error"
+    Resume Finally
+
+End Sub
+
+Sub RenameInFolder()
+
+    #If DebugMode = 0 Then
+    On Error GoTo Catch
+    #End If
+    
+    With InputData.RequestDocumentOrPage
+        If .IsError Then GoTo Finally
+    End With
+    
+    If ActiveDocument.Dirty Then
+        Notify "Сохраните документ перед запуском.", APP_DISPLAYNAME
+        Exit Sub
+    End If
+    
+    Dim RootPath As String: RootPath = ActiveDocument.FilePath
+    ActiveDocument.Close
+    
+    #If DebugMode = 0 Then
+    Optimization = True
+    #End If
+    
+    OpenRenameSaveAsAndExportForPath RootPath
+    
+Finally:
+    Optimization = False
     Exit Sub
 
 Catch:
@@ -129,9 +163,54 @@ Private Sub ReplaceNumber(ByVal Shape As Shape, ByVal Number As Long)
     Story.Range(0, LastDigitPosition).Replace TEXT_PREFIX & CStr(Number)
 End Sub
 
+Private Sub OpenRenameSaveAsAndExportForPath(ByVal RootPath As String)
+    Dim CdrPath As String: CdrPath = MakePath(RootPath & CDR_FOLDER_NAME)
+    Dim PdfPath As String: PdfPath = MakePath(RootPath & PDF_FOLDER_NAME)
+    Dim File As File
+    For Each File In FSO.GetFolder(RootPath).Files
+        TryOpenRenameSaveAsAndExportFile File.Path, CdrPath, PdfPath
+    Next File
+End Sub
+
+Private Sub TryOpenRenameSaveAsAndExportFile( _
+                ByVal FileCandidate As String, _
+                ByVal CdrPath As String, _
+                ByVal PdfPath As String _
+            )
+    Dim File As FileSpec: Set File = FileSpec.New_(FileCandidate)
+    If Not File.Ext = "cdr" Then Exit Sub
+    Dim StartingNumber As Long
+    OpenDocument File
+    If TryGetStartingNumberFromFileName(StartingNumber) Then
+        RenameInActiveDoc StartingNumber
+        File.Path = CdrPath
+        SaveAs File
+        File.Path = PdfPath
+        File.Ext = "pdf"
+        ExportPdf File
+    End If
+    ActiveDocument.Close
+End Sub
+
+Private Function SaveAs(ByVal File As String)
+    Dim Options As New StructSaveAsOptions
+    With Options
+        .Version = cdrVersion15
+    End With
+    ActiveDocument.SaveAs File, Options
+End Function
+
+
+Private Function ExportPdf(ByVal File As String)
+    With ActiveDocument.PDFSettings
+        .PublishRange = pdfWholeDocument
+    End With
+    ActiveDocument.PublishToPDF File
+End Function
+
 '===============================================================================
 ' # Tests
 
 Private Sub testSomething()
-    ReplaceNumber ActiveShape, 555
+    OpenDocument "e:\WORK\макросы Corel\на заказ\НПЦ Денис\Archeology\материалы\тестовая папка\илл_0001-0000=Р06-погребение_002 КАК ОБРАЗЕЦ для скрипта.cdr"
 End Sub
