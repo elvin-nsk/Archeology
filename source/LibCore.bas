@@ -1,7 +1,7 @@
 Attribute VB_Name = "LibCore"
 '===============================================================================
 '   Модуль          : LibCore
-'   Версия          : 2024.10.28
+'   Версия          : 2024.11.10
 '   Автор           : elvin-nsk (me@elvin.nsk.ru)
 '   Использован код : dizzy (из макроса CtC), Alex Vakulenko
 '                     и др.
@@ -1949,8 +1949,23 @@ Public Sub AppendCollection( _
     Next Item
 End Sub
 
-Public Function AskYesNo(ByVal Text As String) As Boolean
-    AskYesNo = (VBA.MsgBox(Text, vbYesNo) = 6)
+Public Function AskForLong( _
+                    ByVal Message As String, _
+                    ByRef Num As Long, _
+                    Optional ByVal Title As String _
+                ) As Boolean
+    Dim Out As Variant
+    Out = VBA.InputBox(Message, Title, Num)
+    If Not IsLong(Out) Then Exit Function
+    AskForLong = True
+    Num = Out
+End Function
+
+Public Function AskYesNo( _
+                    ByVal Message As String, _
+                    Optional ByVal Title As String _
+                ) As Boolean
+    AskYesNo = (VBA.MsgBox(Message, vbYesNo, Title) = 6)
 End Function
 
 Public Sub Assign(ByRef Destination As Variant, ByVal x As Variant)
@@ -2188,6 +2203,12 @@ Public Property Get IsDivider( _
     If Number Mod Divider = 0 Then IsDivider = True Else IsDivider = False
 End Property
 
+Public Property Get IsLong(ByVal x As Variant) As Boolean
+    If Not VBA.IsNumeric(x) Then Exit Property
+    If CLng(x) <> VBA.Val(x) Then Exit Property
+    IsLong = True
+End Property
+
 Public Property Get IsLowerCase(ByVal Str As String) As Boolean
     If VBA.LCase(Str) = Str Then IsLowerCase = True
 End Property
@@ -2401,6 +2422,28 @@ Public Property Get SequenceToShowable(ByVal Sequence As Variant) As String
     If VBA.Len(Result) > 2 Then Result = VBA.Left(Result, VBA.Len(Result) - 2)
     SequenceToShowable = "[" & Result & "]"
 End Property
+
+'bubble sort
+'https://stackoverflow.com/a/3588073/3700481
+Public Sub SortCollection(ByVal Collection As Collection)
+    If Collection.Count < 2 Then Exit Sub
+    Dim i As Long, j As Long
+    Dim Temp As Variant
+    'Two loops to bubble sort
+    For i = 1 To Collection.Count - 1
+        For j = i + 1 To Collection.Count
+            If Collection(i) > Collection(j) Then
+                'store the lesser item
+                Temp = Collection(j)
+                'remove the lesser item
+                Collection.Remove j
+                're-add the lesser item before the
+                'greater Item
+                Collection.Add Item:=Temp, Before:=i
+            End If
+        Next j
+    Next i
+End Sub
 
 Public Sub Swap(ByRef x As Variant, ByRef y As Variant)
     Dim z As Variant

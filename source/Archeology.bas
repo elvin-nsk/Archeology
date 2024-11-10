@@ -1,7 +1,7 @@
 Attribute VB_Name = "Archeology"
 '===============================================================================
 '   Макрос          : Archeology
-'   Версия          : 2024.10.28
+'   Версия          : 2024.11.10
 '   Сайты           : https://vk.com/elvin_macro
 '                     https://github.com/elvin-nsk
 '   Автор           : elvin-nsk (me@elvin.nsk.ru)
@@ -15,7 +15,7 @@ Option Explicit
 Public Const APP_NAME As String = "Archeology"
 Public Const APP_DISPLAYNAME As String = APP_NAME
 Public Const APP_FILEBASENAME As String = "elvin_" & APP_NAME
-Public Const APP_VERSION As String = "2024.10.28"
+Public Const APP_VERSION As String = "2024.11.10"
 Public Const APP_URL As String = "https://vk.com/elvin_macro/" & APP_NAME
 
 '===============================================================================
@@ -78,6 +78,11 @@ Sub RenameInFolder()
         Exit Sub
     End If
     
+    Dim StartingNumber As Long: StartingNumber = 1
+    If Not AskForLong("Стартовый номер:", StartingNumber, APP_DISPLAYNAME) Then
+        Exit Sub
+    End If
+    
     Dim RootPath As String: RootPath = ActiveDocument.FilePath
     ActiveDocument.Close
     
@@ -85,7 +90,7 @@ Sub RenameInFolder()
     Optimization = True
     #End If
     
-    OpenRenameSaveAsAndExportForPath RootPath
+    OpenRenameSaveAsAndExportForPath RootPath, StartingNumber
     
 Finally:
     Optimization = False
@@ -130,7 +135,10 @@ Private Property Get IsValid(ByVal Shape As Shape) As Boolean
     IsValid = True
 End Property
 
-Private Sub RenameInActiveDoc(ByVal StartingNumber As Long)
+Private Sub RenameInActiveDoc( _
+                ByVal StartingNumber As Long, _
+                Optional ByRef LastNumber As Long _
+            )
     Dim Counter As Long: Counter = StartingNumber
     Dim Page As Page
     Dim Shape As Shape
@@ -151,6 +159,7 @@ Private Sub RenameInActiveDoc(ByVal StartingNumber As Long)
         Next Shape
     
     Next Page
+    LastNumber = Counter - 1
 End Sub
 
 Private Sub ReplaceNumber(ByVal Shape As Shape, ByVal Number As Long)
@@ -163,33 +172,66 @@ Private Sub ReplaceNumber(ByVal Shape As Shape, ByVal Number As Long)
     Story.Range(0, LastDigitPosition).Replace TEXT_PREFIX & CStr(Number)
 End Sub
 
-Private Sub OpenRenameSaveAsAndExportForPath(ByVal RootPath As String)
+Private Sub OpenRenameSaveAsAndExportForPath( _
+                ByVal RootPath As String, _
+                ByVal StartingNumber As Long _
+            )
     Dim CdrPath As String: CdrPath = MakePath(RootPath & CDR_FOLDER_NAME)
     Dim PdfPath As String: PdfPath = MakePath(RootPath & PDF_FOLDER_NAME)
+    Dim Files As Collection: Set Files = GetFilesFromFolder(RootPath)
+    SortFiles Files
+    
+    Dim NextNumber As Long: NextNumber = StartingNumber
     Dim File As File
-    For Each File In FSO.GetFolder(RootPath).Files
-        TryOpenRenameSaveAsAndExportFile File.Path, CdrPath, PdfPath
+    For Each File In Files
+        TryOpenRenameSaveAsAndExportFile _
+            File.Path, CdrPath, PdfPath, NextNumber
     Next File
 End Sub
 
 Private Sub TryOpenRenameSaveAsAndExportFile( _
                 ByVal FileCandidate As String, _
                 ByVal CdrPath As String, _
-                ByVal PdfPath As String _
+                ByVal PdfPath As String, _
+                ByRef NextNumber As Long _
             )
     Dim File As FileSpec: Set File = FileSpec.New_(FileCandidate)
     If Not File.Ext = "cdr" Then Exit Sub
-    Dim StartingNumber As Long
     OpenDocument File
-    If TryGetStartingNumberFromFileName(StartingNumber) Then
-        RenameInActiveDoc StartingNumber
-        File.Path = CdrPath
-        SaveAs File
-        File.Path = PdfPath
-        File.Ext = "pdf"
-        ExportPdf File
-    End If
+    
+    Dim LastNumber As Long
+    RenameInActiveDoc NextNumber, LastNumber
+    File.Name = GetFileNameWithReplacedNumbers(File.Name, NextNumber, LastNumber)
+    File.Path = CdrPath
+    
+    SaveAs File
+    File.Path = PdfPath
+    File.Ext = "pdf"
+    ExportPdf File
     ActiveDocument.Close
+    
+    NextNumber = LastNumber + 1
+End Sub
+
+Private Sub SortFiles(ByVal Files As Collection)
+    If Files.Count < 2 Then Exit Sub
+    Dim i As Long, j As Long
+    Dim Temp As File
+    'Two loops to bubble sort
+    For i = 1 To Files.Count - 1
+        For j = i + 1 To Files.Count
+            If ToComparable(Files(i).Name) _
+             > ToComparable(Files(j).Name) Then
+                'store the lesser item
+                Set Temp = Files(j)
+                'remove the lesser item
+                Files.Remove j
+                're-add the lesser item before the
+                'greater Item
+                Files.Add Item:=Temp, Before:=i
+            End If
+        Next j
+    Next i
 End Sub
 
 Private Function SaveAs(ByVal File As String)
@@ -200,7 +242,6 @@ Private Function SaveAs(ByVal File As String)
     ActiveDocument.SaveAs File, Options
 End Function
 
-
 Private Function ExportPdf(ByVal File As String)
     With ActiveDocument.PDFSettings
         .PublishRange = pdfWholeDocument
@@ -208,9 +249,60 @@ Private Function ExportPdf(ByVal File As String)
     ActiveDocument.PublishToPDF File
 End Function
 
+Private Property Get ToComparable(ByVal s As String) As String
+    Dim Pos As Long
+    Pos = VBA.InStr(1, s, "=")
+    If Pos = 0 Then
+        ToComparable = s
+    Else
+        ToComparable = Mid(s, Pos)
+    End If
+End Property
+
+Private Property Get GetFileNameWithReplacedNumbers( _
+                ByVal FileName As String, _
+                ByVal FirstNumber As Long, _
+                ByVal LastNumber As Long _
+            )
+    Dim Pos As Long
+    Pos = VBA.InStr(1, FileName, "=")
+    If Pos = 0 Then Exit Property
+    GetFileNameWithReplacedNumbers = _
+        "илл_" _
+      & VBA.Format(FirstNumber, "0000") _
+      & "-" _
+      & VBA.Format(LastNumber, "0000") _
+      & Mid(FileName, Pos)
+End Property
+
 '===============================================================================
 ' # Tests
 
-Private Sub testSomething()
-    OpenDocument "e:\WORK\макросы Corel\на заказ\НПЦ Денис\Archeology\материалы\тестовая папка\илл_0001-0000=Р06-погребение_002 КАК ОБРАЗЕЦ для скрипта.cdr"
+Private Sub TestSomething()
+    Dim cFruit As New Collection
+    'fill the collection
+    cFruit.Add "илл_0013-0016=раскоп2_погребение5.cdr"
+    cFruit.Add "илл_0005-0008=раскоп2_погребение2.cdr"
+    cFruit.Add "илл_0009-0012=раскоп2_погребение4.cdr"
+    
+    SortCollection cFruit
+    Show cFruit
+End Sub
+
+Private Sub Test2()
+    Show ToComparable("илл_0013-0016=раскоп2_погребение5.cdr")
+End Sub
+
+Private Sub Test3()
+    Dim Files As Collection
+    Set Files = GetFilesFromFolder("d:\temp\images\")
+    Show Files
+    SortFiles Files
+    Show Files
+End Sub
+
+Private Sub Test4()
+    Dim Name As String
+    Name = "илл_0013-0016=раскоп2_погребение5.cdr"
+    Show GetFileNameWithReplacedNumbers(Name, 6, 10)
 End Sub
