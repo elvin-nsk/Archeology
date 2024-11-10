@@ -102,6 +102,35 @@ Catch:
 
 End Sub
 
+Sub ResetFileNames()
+
+    #If DebugMode = 0 Then
+    On Error GoTo Catch
+    #End If
+    
+    With InputData.RequestDocumentOrPage
+        If .IsError Then GoTo Finally
+    End With
+    
+    If ActiveDocument.Dirty Then
+        Notify "Сохраните документ перед запуском.", APP_DISPLAYNAME
+        Exit Sub
+    End If
+    
+    Dim RootPath As String: RootPath = ActiveDocument.FilePath
+    ActiveDocument.Close
+    
+    RenameFilesToZeros RootPath
+    
+Finally:
+    Exit Sub
+
+Catch:
+    VBA.MsgBox VBA.Err.Source & ": " & VBA.Err.Description, vbCritical, "Error"
+    Resume Finally
+
+End Sub
+
 '===============================================================================
 ' # Helpers
 
@@ -275,6 +304,45 @@ Private Property Get GetFileNameWithReplacedNumbers( _
       & Mid(FileName, Pos)
 End Property
 
+Private Sub RenameFilesToZeros(ByVal RootPath As String)
+    Dim Name As String
+    Dim File As File
+    For Each File In FSO.GetFolder(RootPath).Files
+        Name = File.Name
+        ReplaceDigitsWithZeros Name
+        RenameFile File, Name
+    Next File
+End Sub
+
+Private Sub RenameFile(ByVal File As File, ByVal NewName As String)
+    Dim f As FileSpec: Set f = FileSpec.New_(File.Path)
+    f.Name = NewName
+    If FileExists(f) Then
+        f.BaseName = f.BaseName & "+"
+        RenameFile File, f.Name
+    Else
+        File.Name = f.Name
+    End If
+End Sub
+
+Private Sub ReplaceDigitsWithZeros(ByRef s As String)
+    Dim i As Long
+    Dim InBrackets As Boolean
+    
+    For i = 1 To Len(s)
+        If Mid(s, i, 1) = "(" Then
+            InBrackets = True
+        ElseIf Mid(s, i, 1) = ")" Then
+            InBrackets = False
+        ElseIf Not InBrackets And Mid(s, i, 1) Like "[0-9]" Then
+            Mid(s, i, 1) = "0"
+        End If
+    Next i
+    
+    s = Replace(s, "(", "")
+    s = Replace(s, ")", "")
+End Sub
+
 '===============================================================================
 ' # Tests
 
@@ -305,4 +373,10 @@ Private Sub Test4()
     Dim Name As String
     Name = "илл_0013-0016=раскоп2_погребение5.cdr"
     Show GetFileNameWithReplacedNumbers(Name, 6, 10)
+End Sub
+
+Private Sub Test5()
+    Dim s As String: s = "илл_0013-(0016)=раскоп2_погребение5.cdr"
+    ReplaceDigitsWithZeros s
+    Show s
 End Sub
