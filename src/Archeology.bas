@@ -1,7 +1,7 @@
 Attribute VB_Name = "Archeology"
 '===============================================================================
 '   Макрос          : Archeology
-'   Версия          : 2025.02.27
+'   Версия          : 2025.02.28
 '   Сайты           : https://vk.com/elvin_macro
 '                     https://github.com/elvin-nsk
 '   Автор           : elvin-nsk (me@elvin.nsk.ru)
@@ -15,7 +15,7 @@ Option Explicit
 Public Const APP_NAME As String = "Archeology"
 Public Const APP_DISPLAYNAME As String = APP_NAME
 Public Const APP_FILEBASENAME As String = "elvin_" & APP_NAME
-Public Const APP_VERSION As String = "2025.02.27"
+Public Const APP_VERSION As String = "2025.02.28"
 Public Const APP_URL As String = "https://vk.com/elvin_macro/" & APP_NAME
 
 '===============================================================================
@@ -29,7 +29,6 @@ Public Const IMPORTER_VALID_EXT_PATTERNS As String = "*.jpg,*.jpeg"
 Public Const IMPORTER_MAX_PAGES As Long = 3
 Public Const IMPORTER_UPPER_FRAME_NAME As String = "1"
 Public Const IMPORTER_LOWER_FRAME_NAME As String = "2"
-Public Const IMPORTER_RESOLUTION As Long = 300
 
 '===============================================================================
 ' # Entry points
@@ -407,6 +406,10 @@ Private Sub Test5()
     Show s
 End Sub
 
-Private Sub Test6()
-    Show Clamp(11, 3, 10)
+Private Sub TestRightFolder()
+    Show RightFolder("d:\temp\images\")
+End Sub
+
+Private Sub TestFileSpecBuild()
+    Show FileSpec.Build(, "d:\temp\images", "раскоп2_погребение5.cdr", "was").ToString
 End Sub

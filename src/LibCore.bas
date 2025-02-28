@@ -1884,7 +1884,7 @@ Public Sub AppendFilesFromFolder( _
     End If
     Dim Folder As Scripting.Folder
     If SearchSubfolders Then
-        For Each Folder In RootFolder.SubFolders
+        For Each Folder In RootFolder.Subfolders
             AppendFilesFromFolder _
                 Folder, ExistingCollection, MatchPatternsSeq, SearchSubfolders
         Next Folder
@@ -2034,6 +2034,12 @@ Public Function ReadFileAD( _
     ReadFileAD = ADODB.ReadText()
     ADODB.Close
 End Function
+
+'последняя папка в пути (если путь - папка, то должен заканчиваться на "\")
+Public Property Get RightFolder(ByVal Path As String) As String
+    Dim xs() As String: xs = Split(Path, "\")
+    RightFolder = xs(UBound(xs) - 1)
+End Property
 
 Public Sub SetFileDateLastModified(ByVal File As String, ByVal DateTime As Date)
     Dim Shell As Object: Set Shell = CreateObject("Shell.Application")

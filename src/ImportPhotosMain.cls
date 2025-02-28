@@ -48,14 +48,6 @@ Public Sub Run()
         Exit Sub
     End If
     
-    Dim ValidFiles As Collection: GetValidFiles This.Cfg!WorkPath, ValidFiles
-    'Show ValidFiles.Count
-    
-    If ValidFiles.Count = 0 Then
-        Warn "В рабочей папке не найдено подходящих файлов."
-        Exit Sub
-    End If
-    
     Dim Doc As Document: Set Doc = Application.OpenDocument(This.Cfg!TemplateFile)
     If ValidateTemplate = Fail Then
         Warn "На шаблоне отсутствуют места размещения."
@@ -65,15 +57,33 @@ Public Sub Run()
     #If DebugMode = 0 Then
     Optimization = True
     #End If
-        
+    
+    Dim Subfolders As Folders: Set Subfolders = _
+        FSO.GetFolder(This.Cfg!WorkPath).Subfolders
+    Set This.Progress = ProgressBar.New_(ProgressBarNumeric, Subfolders.Count)
+    This.Progress.Caption = "Обработка папок"
+    Dim Folder As Folder
+    For Each Folder In Subfolders
+        ProcessFolder Doc, Folder
+    Next Folder
+    
+    Doc.Close
+End Sub
+
+Public Sub ProcessFolder(ByVal Source As Document, ByVal Folder As Folder)
+    Dim ValidFiles As Collection: GetValidFiles Folder, ValidFiles
+    'Show ValidFiles.Count
+    If ValidFiles.Count = 0 Then Exit Sub
+    
+    Source.Duplicate.Activate
+    
+    This.Progress.Update
     AddPages ValidFiles.Count
-    Set This.Progress = ProgressBar.New_(ProgressBarNumeric, ValidFiles.Count)
-    This.Progress.Caption = "Импорт..."
+    
     Dim Images As ShapeRange: Set Images = ImportImages(ValidFiles)
-    Images.SetPositionEx _
-        cdrTopLeft, ActivePage.RightX + ActivePage.SizeWidth / 20, ActivePage.TopY
     PlaceImages Images
-    SaveResult This.Cfg!WorkPath
+    SaveResult Folder.Name
+    
     ActiveDocument.Close
 End Sub
 
@@ -125,24 +135,25 @@ Private Sub PlaceImage( _
                 ByVal Page As Page, _
                 ByVal FrameName As String _
             )
-    This.Progress.Update
     Dim Placeholder As Shape: Set Placeholder = FindShape(Page, FrameName)
     Dim Layer As Layer: Set Layer = Placeholder.Layer
     Image.MoveToLayer Layer
     FitInside Image, Placeholder.BoundingBox
     Image.Bitmap.Resample _
-        ResolutionX:=IMPORTER_RESOLUTION, ResolutionY:=IMPORTER_RESOLUTION
+        ResolutionX:=This.Cfg!Resolution, ResolutionY:=This.Cfg!Resolution
     Image.LeftX = Placeholder.LeftX
     Image.TopY = Placeholder.TopY
     Placeholder.Delete
 End Sub
 
-Private Sub SaveResult(ByVal Path As String)
-    Dim File As FileSpec: Set File = FileSpec.New_
-    File.Path = Path
-    File.Name = ActiveDocument.FileName
-    This.Progress.Caption = "Сохранение..."
-    ActiveDocument.SaveAsCopy File
+Private Sub SaveResult(ByVal Suffix As String)
+    Dim File As FileSpec: Set File = FileSpec.New_(This.Cfg!TemplateFile)
+    File.Path = This.Cfg!WorkPath
+    File.BaseName = File.BaseName & Suffix
+    File.Ext = "cdr"
+    
+    'Show File.ToString
+    ActiveDocument.SaveAs File
 End Sub
 
 Private Property Get FindShape(ByVal Page As Page, ByVal Name As String) As Shape
@@ -154,11 +165,12 @@ Private Sub ActivateImportLayer()
 End Sub
 
 Private Sub GetValidFiles( _
-                         ByVal Path As String, _
+                         ByVal Folder As Scripting.Folder, _
                          ByRef Files As Collection _
                      )
-    Set Files = _
-        FindFiles(This.Cfg!WorkPath, Split(IMPORTER_VALID_EXT_PATTERNS, ","), True)
+    Set Files = New Collection
+    AppendFilesFromFolder _
+        Folder, Files, Split(IMPORTER_VALID_EXT_PATTERNS, ","), True
 End Sub
 
 '===============================================================================
@@ -172,7 +184,7 @@ Private Function ShowImportPhotosView(ByRef Cfg As Dictionary) As BooleanResult
         ViewToDictionaryBinder.New_( _
             Dictionary:=Cfg, _
             View:=View, _
-            ControlNames:=Pack("TemplateFile", "WorkPath") _
+            ControlNames:=Pack("TemplateFile", "WorkPath", "Resolution") _
         )
     View.Show vbModal
     ViewBinder.RefreshDictionary

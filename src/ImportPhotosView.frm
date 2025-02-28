@@ -1,6 +1,6 @@
 VERSION 5.00
 Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} ImportPhotosView 
-   ClientHeight    =   2235
+   ClientHeight    =   2745
    ClientLeft      =   45
    ClientTop       =   390
    ClientWidth     =   6945
@@ -21,6 +21,7 @@ Public IsOk As Boolean
 Public IsCancel As Boolean
 
 Public WorkPathHandler As FolderBrowserHandler
+Public ResolutionHandler As TextBoxHandler
 
 '===============================================================================
 ' # Constructor
@@ -31,23 +32,27 @@ Private Sub UserForm_Initialize()
         
     Set WorkPathHandler = _
         FolderBrowserHandler.New_(WorkPath, WorkPathBrowse)
+    Set ResolutionHandler = _
+        TextBoxHandler.New_(Resolution, TextBoxTypeLong, 1)
 End Sub
 
 '===============================================================================
 ' # Handlers
 
 Private Sub UserForm_Activate()
-    '
+    If Resolution = vbNullString Then Resolution = 300
 End Sub
 
 Private Sub TemplateFileBrowse_Click()
-    TemplateFile = _
+    Dim File As String
+    File = _
         CorelScriptTools.GetFileBox( _
             Filter:="cdr|*.cdr", _
             Title:="Открыть шаблон", _
             Type:=0, _
             Extension:="cdr" _
         )
+    If Not File = vbNullString Then TemplateFile = File
 End Sub
 
 Private Sub btnOk_Click()
