@@ -79,8 +79,10 @@ Public Sub ProcessFolder(ByVal Source As Document, ByVal Folder As Folder)
     
     This.Progress.Update
     AddPages ValidFiles.Count
+    ActiveDocument.Pages.First.Activate
     
     Dim Images As ShapeRange: Set Images = ImportImages(ValidFiles)
+    ResizeImages Images
     PlaceImages Images
     SaveResult Folder.Name
     
@@ -130,6 +132,17 @@ Private Sub PlaceImages(ByVal Images As ShapeRange)
     Next i
 End Sub
 
+Private Sub ResizeImages(ByVal Images As ShapeRange)
+    Dim Size As Rect: Set Size = _
+        FindShape(ActivePage, IMPORTER_UPPER_FRAME_NAME).BoundingBox
+    Dim Image As Shape
+    For Each Image In Images
+        ResizeImage Image, Size
+        Image.LeftX = ActivePage.RightX
+        Image.TopY = ActivePage.TopY
+    Next Image
+End Sub
+
 Private Sub PlaceImage( _
                 ByVal Image As Shape, _
                 ByVal Page As Page, _
@@ -138,7 +151,7 @@ Private Sub PlaceImage( _
     Dim Placeholder As Shape: Set Placeholder = FindShape(Page, FrameName)
     Dim Layer As Layer: Set Layer = Placeholder.Layer
     Image.MoveToLayer Layer
-    FitInside Image, Placeholder.BoundingBox
+    ResizeImage Image, Placeholder.BoundingBox
     Image.Bitmap.Resample _
         ResolutionX:=This.Cfg!Resolution, ResolutionY:=This.Cfg!Resolution
     Image.LeftX = Placeholder.LeftX
@@ -162,6 +175,13 @@ End Property
 
 Private Sub ActivateImportLayer()
     FindShape(ActivePage, IMPORTER_UPPER_FRAME_NAME).Layer.Activate
+End Sub
+
+Public Sub ResizeImage( _
+               ByVal Image As Shape, _
+               ByVal TargetRect As Rect _
+           )
+    FitInside Image, TargetRect
 End Sub
 
 Private Sub GetValidFiles( _
