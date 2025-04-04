@@ -1,7 +1,7 @@
 Attribute VB_Name = "Archeology"
 '===============================================================================
 '   Макрос          : Archeology
-'   Версия          : 2025.02.28
+'   Версия          : 2025.04.04
 '   Сайты           : https://vk.com/elvin_macro
 '                     https://github.com/elvin-nsk
 '   Автор           : elvin-nsk (me@elvin.nsk.ru)
@@ -15,13 +15,13 @@ Option Explicit
 Public Const APP_NAME As String = "Archeology"
 Public Const APP_DISPLAYNAME As String = APP_NAME
 Public Const APP_FILEBASENAME As String = "elvin_" & APP_NAME
-Public Const APP_VERSION As String = "2025.02.28"
+Public Const APP_VERSION As String = "2025.04.04"
 Public Const APP_URL As String = "https://vk.com/elvin_macro/" & APP_NAME
 
 '===============================================================================
 ' # Globals
 
-Private Const TEXT_PREFIX As String = "Илл. "
+Private Const TEXT_PREFIX As String = "Илл."
 Private Const CDR_FOLDER_NAME As String = "CDR"
 Private Const PDF_FOLDER_NAME As String = "PDF"
 
@@ -182,13 +182,6 @@ Private Property Get IsThereAnyValidShape() As Boolean
     Next Page
 End Property
 
-Private Property Get IsValid(ByVal Shape As Shape) As Boolean
-    If Shape.Type <> cdrTextShape Then Exit Property
-    Dim Name As String: Name = Shape.Text.Story.Text
-    If Not Name Like TEXT_PREFIX & "#*" Then Exit Property
-    IsValid = True
-End Property
-
 Private Sub RenameInActiveDoc( _
                 ByVal StartingNumber As Long, _
                 Optional ByRef LastNumber As Long _
@@ -216,14 +209,26 @@ Private Sub RenameInActiveDoc( _
     LastNumber = Counter - 1
 End Sub
 
+Private Property Get IsValid(ByVal Shape As Shape) As Boolean
+    If Shape.Type <> cdrTextShape Then Exit Property
+    Dim Name As String: Name = VBA.Replace(Shape.Text.Story.Text, " ", "")
+    If Not Name Like TEXT_PREFIX & "#*" Then Exit Property
+    IsValid = True
+End Property
+
 Private Sub ReplaceNumber(ByVal Shape As Shape, ByVal Number As Long)
     Dim Story As TextRange: Set Story = Shape.Text.Story
     Dim Text As String: Text = Story.Text
-    Dim LastDigitPosition As Long
+    Dim LastDigitPosition As Long, NextChar As String, DigitFound As Boolean
     For LastDigitPosition = Len(TEXT_PREFIX) + 1 To Story.Characters.Count
-        If Not Mid(Text, LastDigitPosition + 1, 1) Like "#" Then Exit For
+        NextChar = Mid(Text, LastDigitPosition + 1, 1)
+        If NextChar Like "#" Then
+            DigitFound = True
+        Else
+            If DigitFound = True Then Exit For
+        End If
     Next LastDigitPosition
-    Story.Range(0, LastDigitPosition).Replace TEXT_PREFIX & CStr(Number)
+    Story.Range(0, LastDigitPosition).Replace TEXT_PREFIX & " " & CStr(Number)
 End Sub
 
 Private Sub OpenRenameSaveAsAndExportForPath( _
